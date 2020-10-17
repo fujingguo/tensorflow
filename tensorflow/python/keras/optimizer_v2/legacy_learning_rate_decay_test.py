@@ -21,7 +21,7 @@ from __future__ import print_function
 import math
 
 from tensorflow.python.eager import context
-from tensorflow.python.framework import test_util
+from tensorflow.python.framework import dtypes
 from tensorflow.python.keras import combinations
 from tensorflow.python.keras import keras_parameterized
 from tensorflow.python.keras.optimizer_v2 import legacy_learning_rate_decay as learning_rate_decay
@@ -29,9 +29,9 @@ from tensorflow.python.ops import variables
 from tensorflow.python.platform import googletest
 
 
+@combinations.generate(combinations.combine(mode=["graph", "eager"]))
 class LRDecayTest(keras_parameterized.TestCase):
 
-  @combinations.generate(combinations.combine(mode=["graph", "eager"]))
   def testContinuous(self):
     self.evaluate(variables.global_variables_initializer())
     step = 5
@@ -39,7 +39,6 @@ class LRDecayTest(keras_parameterized.TestCase):
     expected = .05 * 0.96**(5.0 / 10.0)
     self.assertAllClose(self.evaluate(decayed_lr), expected, 1e-6)
 
-  @combinations.generate(combinations.combine(mode=["graph", "eager"]))
   def testStaircase(self):
     if context.executing_eagerly():
       step = variables.Variable(0)
@@ -61,7 +60,6 @@ class LRDecayTest(keras_parameterized.TestCase):
       self.evaluate(step.assign(100))
       self.assertAllClose(self.evaluate(decayed_lr), expected, 1e-6)
 
-  @test_util.run_in_graph_and_eager_modes
   def testVariables(self):
     step = variables.VariableV1(1)
 
@@ -84,7 +82,6 @@ class LRDecayTest(keras_parameterized.TestCase):
     expected = .1 * 0.96**(100 // 3)
     self.assertAllClose(self.evaluate(decayed_lr), expected, 1e-6)
 
-  @combinations.generate(combinations.combine(mode=["graph", "eager"]))
   def testPiecewiseConstant(self):
     x = variables.Variable(-999)
     decayed_lr = learning_rate_decay.piecewise_constant(
@@ -104,9 +101,8 @@ class LRDecayTest(keras_parameterized.TestCase):
     self.evaluate(x.assign(999))
     self.assertAllClose(self.evaluate(decayed_lr), 0.001, 1e-6)
 
-  @combinations.generate(combinations.combine(mode=["graph", "eager"]))
   def testPiecewiseConstantEdgeCases(self):
-    x_int = variables.Variable(0, dtype=variables.dtypes.int32)
+    x_int = variables.Variable(0, dtype=dtypes.int32)
     boundaries, values = [-1.0, 1.0], [1, 2, 3]
     with self.assertRaises(ValueError):
       decayed_lr = learning_rate_decay.piecewise_constant(
@@ -130,7 +126,7 @@ class LRDecayTest(keras_parameterized.TestCase):
       learning_rate_decay.piecewise_constant(x_ref, boundaries, values)
 
     # Test casting boundaries from int32 to int64.
-    x_int64 = variables.Variable(0, dtype=variables.dtypes.int64)
+    x_int64 = variables.Variable(0, dtype=dtypes.int64)
     boundaries, values = [1, 2, 3], [0.4, 0.5, 0.6, 0.7]
     decayed_lr = learning_rate_decay.piecewise_constant(
         x_int64, boundaries, values)

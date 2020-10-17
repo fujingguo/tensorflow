@@ -16,13 +16,18 @@ package(
     licenses = ["notice"],  # Apache 2.0
 )
 
-exports_files(["LICENSE"])
+filegroup(
+    name = "all_py_srcs",
+    srcs = glob(["*.py"]),
+    visibility = ["//tensorflow/python/keras/google/private_tf_api_test:__pkg__"],
+)
 
 py_library(
     name = "distribute",
     srcs = [
         "__init__.py",
         "distributed_training_utils.py",
+        "distributed_training_utils_v1.py",
     ],
     srcs_version = "PY2AND3",
     deps = [
@@ -131,6 +136,7 @@ cuda_py_test(
     srcs = ["worker_training_state_test.py"],
     python_version = "PY3",
     shard_count = 4,
+    tfrt_enabled = True,
     deps = [
         ":multi_worker_testing_utils",
         ":worker_training_state",
@@ -163,6 +169,8 @@ cuda_py_test(
     python_version = "PY3",
     tags = [
         "multi_and_single_gpu",
+        "nomsan",  # TODO(b/162894966)
+        "notsan",  # TODO(b/171040408): data race
     ],
     # b/155301154 broken with XLA:GPU
     xla_enable_strict_auto_jit = True,
@@ -176,11 +184,13 @@ cuda_py_test(
         "//tensorflow/python:training_lib",
         "//tensorflow/python:training_util",
         "//tensorflow/python:variables",
+        "//tensorflow/python/compat:v2_compat",
         "//tensorflow/python/distribute:collective_all_reduce_strategy",
         "//tensorflow/python/distribute:combinations",
         "//tensorflow/python/distribute:cross_device_utils",
         "//tensorflow/python/distribute:multi_worker_test_base",
         "//tensorflow/python/distribute:multi_worker_util",
+        "//tensorflow/python/distribute:strategy_combinations",
         "//tensorflow/python/distribute:strategy_test_lib",
         "//tensorflow/python/distribute/cluster_resolver:cluster_resolver_lib",
         "//tensorflow/python/eager:context",
@@ -198,7 +208,7 @@ distribute_py_test(
     name = "ctl_correctness_test",
     srcs = ["ctl_correctness_test.py"],
     main = "ctl_correctness_test.py",
-    shard_count = 5,
+    shard_count = 10,
     tags = [
         "multi_and_single_gpu",
     ],
@@ -218,6 +228,7 @@ distribute_py_test(
 distribute_py_test(
     name = "custom_training_loop_metrics_test",
     srcs = ["custom_training_loop_metrics_test.py"],
+    disable_mlir_bridge = False,
     main = "custom_training_loop_metrics_test.py",
     tags = [
         "multi_and_single_gpu",
@@ -240,10 +251,11 @@ distribute_py_test(
     main = "custom_training_loop_models_test.py",
     tags = [
         "multi_and_single_gpu",
-        "no_cuda11",
+        "notsan",  # TODO(b/170954243)
     ],
     tpu_tags = [
         "no_oss",  # b/153615544.
+        "notsan",  # TODO(b/170869466)
     ],
     deps = [
         "//tensorflow/python:math_ops",
@@ -264,6 +276,7 @@ distribute_py_test(
 distribute_py_test(
     name = "custom_training_loop_optimizer_test",
     srcs = ["custom_training_loop_optimizer_test.py"],
+    disable_mlir_bridge = False,
     main = "custom_training_loop_optimizer_test.py",
     tags = [
         "multi_and_single_gpu",
@@ -308,6 +321,7 @@ py_library(
 distribute_py_test(
     name = "keras_premade_models_test",
     srcs = ["keras_premade_models_test.py"],
+    disable_mlir_bridge = False,
     full_precision = True,
     main = "keras_premade_models_test.py",
     shard_count = 4,
@@ -323,13 +337,17 @@ distribute_py_test(
 distribute_py_test(
     name = "distribute_strategy_test",
     srcs = ["distribute_strategy_test.py"],
+    disable_mlir_bridge = True,  # TODO(b/170352626)
     full_precision = True,
     main = "distribute_strategy_test.py",
+    python_version = "PY3",
     shard_count = 10,
     tags = [
         "multi_and_single_gpu",
         "no_rocm",  # times out on ROCm
         "no_windows_gpu",
+        "noasan",  # TODO(b/170902997)
+        "notap",  # TODO(b/170902997)
         "notsan",
     ],
     tpu_tags = [
@@ -344,6 +362,7 @@ distribute_py_test(
 distribute_py_test(
     name = "distributed_training_utils_test",
     srcs = ["distributed_training_utils_test.py"],
+    disable_mlir_bridge = False,
     full_precision = True,
     main = "distributed_training_utils_test.py",
     deps = [
@@ -368,9 +387,11 @@ py_library(
     deps = [
         "//tensorflow/python:client_testlib",
         "//tensorflow/python:training",
+        "//tensorflow/python/distribute:collective_all_reduce_strategy",
         "//tensorflow/python/distribute:combinations",
         "//tensorflow/python/distribute:distribute_lib",
         "//tensorflow/python/distribute:mirrored_strategy",
+        "//tensorflow/python/distribute:multi_process_runner",
         "//tensorflow/python/distribute:strategy_combinations",
         "//tensorflow/python/distribute:tpu_strategy",
         "//tensorflow/python/eager:context",
@@ -386,6 +407,7 @@ distribute_py_test(
     name = "keras_dnn_correctness_test",
     size = "medium",
     srcs = ["keras_dnn_correctness_test.py"],
+    disable_mlir_bridge = True,  # TODO(b/170352626)
     full_precision = True,
     main = "keras_dnn_correctness_test.py",
     # Shard count is set to an odd number to distribute tasks across
@@ -395,6 +417,7 @@ distribute_py_test(
         "multi_and_single_gpu",
         "no_rocm",  # times out on ROCm
         "no_windows_gpu",
+        "nogpu",  # TODO(b/170905292)
         "notsan",
     ],
     deps = [
@@ -406,13 +429,14 @@ distribute_py_test(
     name = "keras_embedding_model_correctness_test",
     size = "medium",
     srcs = ["keras_embedding_model_correctness_test.py"],
+    disable_mlir_bridge = True,  # TODO(b/170352626)
     full_precision = True,
     main = "keras_embedding_model_correctness_test.py",
-    shard_count = 4,
+    shard_count = 8,
     tags = [
+        "broken",  # b/170975619
         "multi_and_single_gpu",
         "no_windows_gpu",
-        "notap",  # TODO(b/161144880): flaky
         "notsan",
     ],
     deps = [
@@ -424,6 +448,7 @@ distribute_py_test(
     name = "keras_image_model_correctness_test",
     size = "medium",
     srcs = ["keras_image_model_correctness_test.py"],
+    disable_mlir_bridge = True,  # TODO(b/170352626)
     full_precision = True,
     main = "keras_image_model_correctness_test.py",
     shard_count = 16,
@@ -431,6 +456,7 @@ distribute_py_test(
         "multi_and_single_gpu",
         "no_rocm",  # times out on ROCm
         "no_windows_gpu",
+        "noasan",  # TODO(b/337374867) fails with -fsanitize=null
         "notsan",
     ],
     xla_enable_strict_auto_jit = False,  # Tensorflow also fails.
@@ -442,6 +468,7 @@ distribute_py_test(
 distribute_py_test(
     name = "keras_metrics_test",
     srcs = ["keras_metrics_test.py"],
+    disable_mlir_bridge = False,
     main = "keras_metrics_test.py",
     tags = [
         "multi_and_single_gpu",
@@ -459,6 +486,22 @@ distribute_py_test(
 )
 
 distribute_py_test(
+    name = "keras_models_test",
+    srcs = ["keras_models_test.py"],
+    main = "keras_models_test.py",
+    tags = [
+        "multi_and_single_gpu",
+    ],
+    deps = [
+        "//tensorflow/python/distribute:combinations",
+        "//tensorflow/python/distribute:strategy_combinations",
+        "//tensorflow/python/eager:test",
+        "//tensorflow/python/keras",
+        "@absl_py//absl/testing:parameterized",
+    ],
+)
+
+distribute_py_test(
     name = "keras_rnn_model_correctness_test",
     size = "medium",
     srcs = ["keras_rnn_model_correctness_test.py"],
@@ -469,8 +512,10 @@ distribute_py_test(
     shard_count = 31,
     tags = [
         "multi_and_single_gpu",
-        "no_oss",  # b/136660639
+        "no_cuda11",
+        "no_oss",
         "no_windows_gpu",
+        "noasan",  # TODO(b/337374867) fails with -fsanitize=null
         "notpu",  # TODO(b/153672562)
         "notsan",
     ],
@@ -499,6 +544,7 @@ distribute_py_test(
     name = "keras_stateful_lstm_model_correctness_test",
     size = "medium",
     srcs = ["keras_stateful_lstm_model_correctness_test.py"],
+    disable_mlir_bridge = False,
     full_precision = True,
     main = "keras_stateful_lstm_model_correctness_test.py",
     shard_count = 4,
@@ -516,6 +562,7 @@ distribute_py_test(
 distribute_py_test(
     name = "keras_utils_test",
     srcs = ["keras_utils_test.py"],
+    disable_mlir_bridge = True,  # TODO(b/170352626)
     full_precision = True,
     main = "keras_utils_test.py",
     shard_count = 4,
@@ -640,6 +687,7 @@ cuda_py_test(
         "//tensorflow/python/distribute:values",
         "//tensorflow/python/eager:context",
         "//tensorflow/python/eager:test",
+        "//tensorflow/python/keras:metrics",
         "//tensorflow/python/keras/layers:core",
     ],
 )
@@ -648,7 +696,7 @@ cuda_py_test(
     name = "multi_worker_test",
     srcs = ["multi_worker_test.py"],
     python_version = "PY3",
-    shard_count = 32,
+    shard_count = 2,
     tags = [
         "multi_and_single_gpu",
         "no_oss",  # TODO(b/130369494): Investigate why it times out on OSS.
@@ -730,6 +778,7 @@ py_test(
     tags = [
         "noasan",  # TODO(b/156029134)
         "nomsan",  # TODO(b/156029134)
+        "notap",  # TODO(b/165865820): restore when not flaky
         "notsan",  # TODO(b/156029134)
     ],
     deps = [
@@ -798,5 +847,33 @@ distribute_py_test(
         "//tensorflow/python/eager:test",
         "//third_party/py/numpy",
         "@absl_py//absl/testing:parameterized",
+    ],
+)
+
+py_test(
+    name = "parameter_server_training_test",
+    srcs = ["parameter_server_training_test.py"],
+    python_version = "PY3",
+    shard_count = 1,
+    tags = [
+        "no_oss",  # TODO(b/162119374): enable it in OSS.
+    ],
+    deps = [
+        "//tensorflow/python:constant_op",
+        "//tensorflow/python:dtypes",
+        "//tensorflow/python:init_ops_v2",
+        "//tensorflow/python:training_server_lib",
+        "//tensorflow/python:variables",
+        "//tensorflow/python/compat:v2_compat",
+        "//tensorflow/python/data/ops:dataset_ops",
+        "//tensorflow/python/distribute:multi_worker_test_base",
+        "//tensorflow/python/distribute:parameter_server_strategy_v2",
+        "//tensorflow/python/distribute:sharded_variable",
+        "//tensorflow/python/distribute/client",
+        "//tensorflow/python/distribute/cluster_resolver:cluster_resolver_lib",
+        "//tensorflow/python/eager:backprop",
+        "//tensorflow/python/eager:def_function",
+        "//tensorflow/python/eager:test",
+        "//tensorflow/python/keras",
     ],
 )

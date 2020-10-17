@@ -11,21 +11,20 @@ config_setting(
 )
 
 config_setting(
-    name = "build_with_mkl_ml_only",
-    define_values = {
-        "build_with_mkl": "true",
-        "build_with_mkl_ml_only": "true",
-    },
-    visibility = ["//visibility:public"],
-)
-
-config_setting(
     name = "build_with_mkl_lnx_x64",
     define_values = {
         "build_with_mkl": "true",
     },
     values = {
         "cpu": "k8",
+    },
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "build_with_mkl_aarch64",
+    define_values = {
+        "build_with_mkl_aarch64": "true",
     },
     visibility = ["//visibility:public"],
 )
@@ -39,16 +38,11 @@ config_setting(
     visibility = ["//visibility:public"],
 )
 
-load(
-    "//third_party/mkl:build_defs.bzl",
-    "if_mkl",
-)
-
 filegroup(
     name = "LICENSE",
     srcs = ["MKL_LICENSE"] + select({
         "@org_tensorflow//tensorflow:linux_x86_64": [
-            "@mkl_linux//:LICENSE",
+            "@llvm_openmp//:LICENSE.txt",
         ],
         "@org_tensorflow//tensorflow:macos": [
             "@mkl_darwin//:LICENSE",
@@ -61,13 +55,23 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
+# TODO(Intel-tf) Remove the following call to cc_library and replace all uses
+# of mkl_libs_linux with @llvm_openmp//:libiomp5.so directly.
+
+cc_library(
+    name = "mkl_libs_linux",
+    srcs = [
+        "@llvm_openmp//:libiomp5.so",
+    ],
+    visibility = ["//visibility:public"],
+)
+
 cc_library(
     name = "intel_binary_blob",
     visibility = ["//visibility:public"],
     deps = select({
         "@org_tensorflow//tensorflow:linux_x86_64": [
-            "@mkl_linux//:mkl_headers",
-            "@mkl_linux//:mkl_libs_linux",
+            ":mkl_libs_linux",
         ],
         "@org_tensorflow//tensorflow:macos": [
             "@mkl_darwin//:mkl_headers",

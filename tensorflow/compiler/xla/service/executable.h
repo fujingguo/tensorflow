@@ -60,15 +60,24 @@ namespace xla {
 //   with their indices absent from unowned_indices_.
 class ExecutionInput {
  public:
-  explicit ExecutionInput(xla::Shape shape, xla::Shape host_shape)
+  explicit ExecutionInput(xla::Shape shape) : buffers_(std::move(shape)) {
+    SetHostShape(ShapeUtil::DeviceShapeToHostShape(buffers_.shape()));
+  }
+  // TODO(b/170310047): remove this overload.
+  ExecutionInput(xla::Shape shape, xla::Shape host_shape)
       : buffers_(std::move(shape)) {
-    SetHostShape(std::move(host_shape));
+    SetHostShape(ShapeUtil::DeviceShapeToHostShape(buffers_.shape()));
   }
 
-  explicit ExecutionInput(ShapeTree<MaybeOwningDeviceMemory> buffers,
-                          xla::Shape host_shape)
+  explicit ExecutionInput(ShapeTree<MaybeOwningDeviceMemory> buffers)
       : buffers_(std::move(buffers)) {
-    SetHostShape(std::move(host_shape));
+    SetHostShape(ShapeUtil::DeviceShapeToHostShape(buffers_.shape()));
+  }
+  // TODO(b/170310047): remove this overload.
+  ExecutionInput(ShapeTree<MaybeOwningDeviceMemory> buffers,
+                 xla::Shape host_shape)
+      : buffers_(std::move(buffers)) {
+    SetHostShape(ShapeUtil::DeviceShapeToHostShape(buffers_.shape()));
   }
 
   ExecutionInput(ExecutionInput&&) = default;
@@ -104,6 +113,8 @@ class ExecutionInput {
   void ClearUnownedIndex(const ShapeIndex& index) {
     unowned_indices_.erase(index);
   }
+
+  const std::set<ShapeIndex>& unowned_indices() { return unowned_indices_; }
 
   const ShapeTree<MaybeOwningDeviceMemory>& Buffers() const { return buffers_; }
 
@@ -142,10 +153,13 @@ class ExecutionOutput {
                   std::vector<se::OwningDeviceMemory> to_be_released)
       : result_(std::move(result)),
         to_be_released_(std::move(to_be_released)) {}
+  // TODO(b/170310047): remove this overload.
   ExecutionOutput(Shape on_host_shape, Shape on_device_shape,
                   se::DeviceMemoryAllocator* allocator, int device_ordinal)
-      : result_(std::move(on_host_shape), std::move(on_device_shape), allocator,
-                device_ordinal) {}
+      : result_(std::move(on_device_shape), allocator, device_ordinal) {}
+  ExecutionOutput(Shape on_device_shape, se::DeviceMemoryAllocator* allocator,
+                  int device_ordinal)
+      : result_(std::move(on_device_shape), allocator, device_ordinal) {}
   ExecutionOutput(ExecutionOutput&&) = default;
   ExecutionOutput& operator=(ExecutionOutput&&) = default;
 
@@ -188,6 +202,12 @@ class ExecutionOutput {
 
   std::vector<se::OwningDeviceMemory> ConsumeToBeReleased() {
     return std::move(to_be_released_);
+  }
+
+  std::vector<ShapeIndex> ConsumeAliasedIndices() {
+    auto aliased = std::move(aliased_indices_);
+    aliased_indices_.clear();
+    return aliased;
   }
 
  private:

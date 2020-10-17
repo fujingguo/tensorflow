@@ -261,6 +261,36 @@ config_setting(
 )
 
 config_setting(
+    name = "armeabi",
+    values = {"cpu": "armeabi"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "armeabi-v7a",
+    values = {"cpu": "armeabi-v7a"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "arm64-v8a",
+    values = {"cpu": "arm64-v8a"},
+    visibility = ["//visibility:public"],
+)
+
+selects.config_setting_group(
+    name = "arm_any",
+    match_any = [
+        ":arm",
+        ":armeabi",
+        ":armeabi-v7a",
+        ":arm64-v8a",
+        ":linux_aarch64",
+        ":linux_armhf",
+    ],
+)
+
+config_setting(
     name = "freebsd",
     values = {"cpu": "freebsd"},
     visibility = ["//visibility:public"],
@@ -467,10 +497,17 @@ config_setting(
     visibility = ["//visibility:public"],
 )
 
-# This flag enables experimental MLIR bridge support.
+# This flag forcibly enables experimental MLIR bridge support.
 config_setting(
     name = "enable_mlir_bridge",
     values = {"define": "enable_mlir_bridge=true"},
+    visibility = ["//visibility:public"],
+)
+
+# This flag forcibly disables experimental MLIR bridge support.
+config_setting(
+    name = "disable_mlir_bridge",
+    values = {"define": "enable_mlir_bridge=false"},
     visibility = ["//visibility:public"],
 )
 
@@ -532,35 +569,17 @@ selects.config_setting_group(
 package_group(
     name = "internal",
     packages = [
-        # To pass open source testing in the pip Kokoros.
-        "//bazel_pip/tensorflow/...",
-        "//learning/brain/swift/x10/...",
-        "//perftools/accelerators/xprof/api/...",
-        "//third_party/py/autograph/...",
-        "//third_party/swift/tensorflow/x10/...",
-        "//third_party/swift/tensorflow_apis/...",
+        "//learning/lib/ami/simple_ml/...",
         "//tensorflow/...",
-        "//tensorflow_estimator/python/estimator/...",
-        "//tensorflow_models/official/...",
     ],
 )
 
-package_group(
-    name = "ndarray_tensor_allow_list",
-    packages = ["//learning/pathways/..."],
-)
-
-# Packages that use composite tensors or dispatch.
-# TODO(b/154762408) Remove this package group once it's no longer needed.
-# If this is modified, then copy.bara.sky must also be modified.
-package_group(name = "composite_tensor_whitelist")
+package_group(name = "ndarray_tensor_allow_list")
 
 # Packages that use private types symbols, until they are exported.
 # TODO(b/154650521) Remove.
-package_group(
-    name = "types_whitelist",
-    packages = ["//learning/deepmind/tensorflow/replicator/..."],
-)
+# If this is modified, then copy.bara.sky must also be modified.
+package_group(name = "types_whitelist")
 
 # Packages that use StructuredTensors.
 # TODO(b/159007891) Remove this package once StructuredTensor is exported.
@@ -686,8 +705,12 @@ tf_cc_shared_object(
     soversion = VERSION,
     visibility = ["//visibility:public"],
     deps = [
+        "//tensorflow/c/experimental/filesystem:filesystem_interface",
+        "//tensorflow/c/experimental/stream_executor:stream_executor_hdrs",
+        "//tensorflow/c:kernels_hdrs",
+        "//tensorflow/c:ops_hdrs",
         "//tensorflow/cc/saved_model:loader_lite_impl",
-        "//tensorflow/core:core_cpu_impl",
+        "//tensorflow/core/common_runtime:core_cpu_impl",
         "//tensorflow/core:framework_internal_impl",
         "//tensorflow/core/common_runtime/gpu:gpu_runtime_impl",
         "//tensorflow/core/grappler/optimizers:custom_graph_optimizer_registry_impl",

@@ -40,13 +40,6 @@ Timespan XEventTimespan(const XEvent& event) {
   return Timespan(event.offset_ps(), event.duration_ps());
 }
 
-// Functor that compares XEvents of the same XLine for sorting by timespan.
-struct XEventsComparator {
-  bool operator()(const XEvent* a, const XEvent* b) const {
-    return XEventTimespan(*a) < XEventTimespan(*b);
-  }
-};
-
 }  // namespace
 
 const XPlane* FindPlaneWithName(const XSpace& space, absl::string_view name) {
@@ -144,6 +137,10 @@ void RemoveEmptyLines(XPlane* plane) {
                lines->end());
 }
 
+bool XEventsComparator::operator()(const XEvent* a, const XEvent* b) const {
+  return XEventTimespan(*a) < XEventTimespan(*b);
+}
+
 void SortXPlane(XPlane* plane) {
   for (XLine& line : *plane->mutable_lines()) {
     auto& events = *line.mutable_events();
@@ -164,7 +161,7 @@ void SortXSpace(XSpace* space) {
 // smaller than these value.
 void NormalizeTimestamps(XPlane* plane, uint64 start_time_ns) {
   for (XLine& line : *plane->mutable_lines()) {
-    if (line.timestamp_ns() >= static_cast<long int>(start_time_ns)) {
+    if (line.timestamp_ns() >= static_cast<int64>(start_time_ns)) {
       line.set_timestamp_ns(line.timestamp_ns() - start_time_ns);
     }
   }
@@ -241,6 +238,17 @@ uint64 GetStartTimestampNs(const XPlane& plane) {
     plane_timestamp = std::min<int64>(plane_timestamp, line.timestamp_ns());
   }
   return plane_timestamp;
+}
+
+bool IsEmpty(const XSpace& space) {
+  for (const auto& plane : space.planes()) {
+    for (const auto& line : plane.lines()) {
+      if (!line.events().empty()) {
+        return false;
+      }
+    }
+  }
+  return true;
 }
 
 }  // namespace profiler
